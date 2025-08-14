@@ -262,7 +262,7 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
       const [result] = await db.execute(
         `INSERT INTO videos (
           nome, descricao, url, caminho, duracao, tamanho_arquivo,
-    const relativePath = `${userLogin}/${folderName}/${req.file.filename}`;
+    const relativePath = \`${userLogin}/${folderName}/${req.file.filename}`;
           largura, altura, is_mp4, compativel
         ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, '1920', '1080', ?, 'sim')`,
         [
