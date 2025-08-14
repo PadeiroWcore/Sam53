@@ -262,7 +262,7 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
       const [result] = await db.execute(
         `INSERT INTO videos (
           nome, descricao, url, caminho, duracao, tamanho_arquivo,
-          codigo_cliente, pasta, bitrate_video, formato_original,
+    const relativePath = `${userLogin}/${folderName}/${req.file.filename}`;
           largura, altura, is_mp4, compativel
         ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, '1920', '1080', ?, 'sim')`,
         [
@@ -404,7 +404,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     let fileSize = tamanho_arquivo || 0;
     // Nova estrutura: verificar se já está no formato correto
     const remotePath = caminho.startsWith('/home/streaming') ? 
-      caminho : `/home/streaming/${caminho.replace('streaming/', '')}`;
+      caminho : `/home/streaming/${caminho}`;
 
     // Verificar tamanho real do arquivo via SSH, se necessário
     if (!fileSize) {

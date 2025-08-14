@@ -111,6 +111,22 @@ router.post('/', authMiddleware, async (req, res) => {
       ]
     );
 
+    // Atualizar arquivo SMIL do usuário após criar agendamento
+    try {
+      const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
+      const [serverRows] = await db.execute(
+        'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+        [req.user.id]
+      );
+      const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+      
+      const PlaylistSMILService = require('../services/PlaylistSMILService');
+      await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
+      console.log(`✅ Arquivo SMIL atualizado após criar agendamento para usuário ${userLogin}`);
+    } catch (smilError) {
+      console.warn('Erro ao atualizar arquivo SMIL:', smilError.message);
+    }
+
     res.status(201).json({
       id: result.insertId,
       message: 'Agendamento criado com sucesso'
@@ -142,6 +158,22 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       'DELETE FROM playlists_agendamentos WHERE codigo = ?',
       [agendamentoId]
     );
+
+    // Atualizar arquivo SMIL do usuário após remover agendamento
+    try {
+      const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
+      const [serverRows] = await db.execute(
+        'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+        [req.user.id]
+      );
+      const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+      
+      const PlaylistSMILService = require('../services/PlaylistSMILService');
+      await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
+      console.log(`✅ Arquivo SMIL atualizado após remover agendamento para usuário ${userLogin}`);
+    } catch (smilError) {
+      console.warn('Erro ao atualizar arquivo SMIL:', smilError.message);
+    }
 
     res.json({ success: true, message: 'Agendamento removido com sucesso' });
   } catch (err) {

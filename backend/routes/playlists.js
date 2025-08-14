@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../config/database');
 const authMiddleware = require('../middlewares/authMiddleware');
+const PlaylistSMILService = require('../services/PlaylistSMILService');
 
 const router = express.Router();
 
@@ -152,6 +153,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
           [stats[0].total_videos, stats[0].duracao_total || 0, playlistId]
         );
       }
+
+      // Atualizar arquivo SMIL do usuário
+      try {
+        const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
+        const [serverRows] = await db.execute(
+          'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+          [req.user.id]
+        );
+        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        
+        await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
+        console.log(`✅ Arquivo SMIL atualizado para usuário ${userLogin}`);
+      } catch (smilError) {
+        console.warn('Erro ao atualizar arquivo SMIL:', smilError.message);
+      }
     }
 
     res.json({ success: true, message: 'Playlist atualizada com sucesso' });
@@ -200,12 +216,64 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await db.execute(
       'DELETE FROM playlists WHERE id = ?',
       [playlistId]
+  // Atualizar arquivo SMIL do usuário após remoção
+  try {
+    const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
+    const [serverRows] = await db.execute(
+      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      [req.user.id]
+    );
+    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    
+    await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
+    console.log(`✅ Arquivo SMIL atualizado após remoção da playlist para usuário ${userLogin}`);
+  } catch (smilError) {
+    console.warn('Erro ao atualizar arquivo SMIL:', smilError.message);
+  }
     );
 
     res.json({ success: true, message: 'Playlist removida com sucesso' });
   } catch (err) {
     console.error('Erro ao remover playlist:', err);
     res.status(500).json({ error: 'Erro ao remover playlist', details: err.message });
+  }
+});
+// POST /api/playlists/generate-smil - Gerar arquivo SMIL manualmente
+router.post('/generate-smil', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${userId}`;
+    
+    // Buscar servidor do usuário
+    const [serverRows] = await db.execute(
+      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      [userId]
+    );
+    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+
+    // Gerar arquivo SMIL
+    const result = await PlaylistSMILService.generateUserSMIL(userId, userLogin, serverId);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Arquivo SMIL gerado com sucesso',
+        smil_path: result.smil_path,
+        playlists_count: result.playlists_count,
+        total_videos: result.total_videos
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error || result.message
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao gerar SMIL:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
   }
 });
 

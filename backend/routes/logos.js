@@ -138,8 +138,8 @@ router.post('/', authMiddleware, upload.single('logo'), async (req, res) => {
       });
     }
 
-    // Caminho relativo para salvar no banco
-    const relativePath = `/logos/${req.file.filename}`;
+    // Caminho relativo para salvar no banco (nova estrutura)
+    const relativePath = `${userLogin}/logos/${req.file.filename}`;
     // Inserir logo na tabela
     const [result] = await db.execute(
       `INSERT INTO logos (
@@ -151,7 +151,7 @@ router.post('/', authMiddleware, upload.single('logo'), async (req, res) => {
     res.status(201).json({
       id: result.insertId,
       nome: nome,
-      url: `/${userLogin}/logos/${req.file.filename}`,
+      url: `/content/${userLogin}/logos/${req.file.filename}`,
       tamanho: req.file.size,
       tipo_arquivo: req.file.mimetype
     });

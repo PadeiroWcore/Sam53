@@ -593,7 +593,7 @@ router.delete('/:videoId', authMiddleware, async (req, res) => {
         
         // Extrair nome da pasta do caminho
         const pathParts = remotePath.split('/');
-        const folderName = pathParts[pathParts.length - 2]; // Pasta antes do arquivo
+        const folderName = pathParts[4]; // /home/streaming/usuario/pasta/arquivo.mp4
         
         try {
           await db.execute(

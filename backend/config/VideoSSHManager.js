@@ -78,7 +78,7 @@ class VideoSSHManager {
                 const size = parseInt(parts[4]) || 0;
                 const fullPath = parts.slice(8).join(' ');
                 const fileName = path.basename(fullPath);
-                const relativePath = fullPath.replace(`/home/streaming/${userLogin}/`, '');
+                const relativePath = fullPath.replace(`/home/streaming/`, '');
                 const folderPath = path.dirname(relativePath);
                 const fileExtension = path.extname(fileName).toLowerCase();
                 
@@ -135,14 +135,14 @@ class VideoSSHManager {
                     bitrate_original: videoBitrate, // Bitrate original do arquivo
                     formato_original: videoFormat,
                     can_use: !needsConversion,
-                    folder: folderPath === '.' ? 'root' : folderPath,
+                    folder: folderPath.replace(`${userLogin}/`, '') || 'root',
                     size: size,
                     duration: duration,
                     permissions: permissions,
                     lastModified: new Date().toISOString(), // Seria melhor extrair do ls
                     serverId: serverId,
                     userLogin: userLogin,
-                    mp4Url: `/streaming/${userLogin}/${folderPath}/${mp4FileName}`,
+                    mp4Url: `/content/${relativePath.replace(fileName, mp4FileName)}`,
                     originalFormat: fileExtension,
                     user_bitrate_limit: userBitrateLimit
                 });
@@ -194,7 +194,7 @@ class VideoSSHManager {
                         
                         // Inserir novo vídeo na tabela videos
                         const duracao = this.formatDuration(video.duration);
-                        const relativePath = video.fullPath.replace('/usr/local/WowzaStreamingEngine/content/', '');
+                        const relativePath = video.path; // Já está no formato correto
                         
                         await db.execute(
                             `INSERT INTO videos (

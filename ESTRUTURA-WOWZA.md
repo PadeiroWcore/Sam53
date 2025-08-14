@@ -6,6 +6,8 @@
 ```bash
 /home/streaming/
 ├── {usuario1}/
+│   ├── .ftpquota                    # Arquivo de controle de quota (em bytes)
+│   ├── playlists_agendamentos.smil  # Arquivo SMIL para agendamentos
 │   ├── {pasta1}/
 │   │   ├── video1.mp4
 │   │   └── video2.avi
@@ -16,6 +18,8 @@
 │   └── recordings/
 │       └── gravacao_live.mp4
 └── {usuario2}/
+    ├── .ftpquota
+    ├── playlists_agendamentos.smil
     ├── default/
     │   └── video.mp4
     └── recordings/
@@ -69,7 +73,7 @@
 
 ### Para Vídeos VOD
 - **HLS URL:** `http://samhost.wcore.com.br:1935/{usuario}/_definst_/mp4:{pasta}/{arquivo}/playlist.m3u8`
-- **VOD URL:** `http://samhost.wcore.com.br:1935/vod/_definst_/mp4:streaming/{usuario}/{pasta}/{arquivo}/playlist.m3u8`
+- **VOD URL:** `http://samhost.wcore.com.br:1935/vod/_definst_/mp4:{usuario}/{pasta}/{arquivo}/playlist.m3u8`
 
 ## 🛠️ Implementação
 
@@ -108,6 +112,10 @@
 4. **Escalabilidade:** Fácil adição de novos usuários
 5. **Compatibilidade:** Segue padrão de sistemas de referência
 6. **Manutenção:** Estrutura organizada e previsível
+7. **Controle de Quota:** Arquivo .ftpquota para controle de espaço
+8. **Agendamentos:** Arquivo SMIL automático para playlists
+9. **Organização:** Estrutura /home/streaming padronizada
+10. **Permissões:** Usuário 'streaming' com permissões corretas
 
 ## 🚀 Próximos Passos
 

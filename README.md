@@ -94,6 +94,26 @@ Aplicação: live
 #       └── publish.password
 ```
 
+### Estrutura de Streaming (Nova)
+```bash
+/home/streaming/
+├── {usuario1}/
+│   ├── .ftpquota                    # Controle de quota em bytes
+│   ├── playlists_agendamentos.smil  # Arquivo SMIL para agendamentos
+│   ├── {pasta1}/
+│   │   ├── video1.mp4
+│   │   └── video2.avi
+│   ├── logos/
+│   │   └── logo.png
+│   └── recordings/
+│       └── gravacao_live.mp4
+└── {usuario2}/
+    ├── .ftpquota
+    ├── playlists_agendamentos.smil
+    └── default/
+        └── video.mp4
+```
+
 ### Variáveis de Ambiente
 ```env
 # Banco de dados

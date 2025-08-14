@@ -37,6 +37,8 @@ class WowzaConfigManager {
         
         const commands = [
             `mkdir -p ${userStreamingPath}`,
+            `mkdir -p ${userStreamingPath}/recordings`,
+            `mkdir -p ${userStreamingPath}/logos`,
             `chown -R streaming:streaming ${userStreamingPath}`,
             `chmod -R 755 ${userStreamingPath}`
         ];
@@ -479,6 +481,104 @@ class WowzaConfigManager {
 
         console.log(`📄 publish.password criado: ${passwordPath}`);
         return passwordPath;
+    // Criar arquivo de playlist SMIL para agendamentos
+    async createPlaylistSMIL(serverId, userLogin, playlistData) {
+        try {
+            const userStreamingPath = `${this.streamingBasePath}/${userLogin}`;
+            const smilPath = `${userStreamingPath}/playlists_agendamentos.smil`;
+            
+            // Gerar conteúdo SMIL baseado nas playlists do usuário
+            const smilContent = this.generateSMILContent(playlistData);
+            
+            // Criar arquivo temporário local
+            const tempFile = `/tmp/playlists_agendamentos_${userLogin}.smil`;
+            const fs = require('fs').promises;
+            await fs.writeFile(tempFile, smilContent);
+
+            // Enviar para servidor
+            await SSHManager.uploadFile(serverId, tempFile, smilPath);
+            
+            // Definir permissões
+            await SSHManager.executeCommand(serverId, `chmod 644 ${smilPath}`);
+            await SSHManager.executeCommand(serverId, `chown streaming:streaming ${smilPath}`);
+
+            // Limpar arquivo temporário
+            await fs.unlink(tempFile);
+
+            console.log(`📄 Arquivo SMIL criado: ${smilPath}`);
+            return smilPath;
+        } catch (error) {
+            console.error(`Erro ao criar arquivo SMIL para ${userLogin}:`, error);
+            throw error;
+        }
+    }
+
+    // Gerar conteúdo SMIL para playlists
+    generateSMILContent(playlistData) {
+        const { playlists = [], videos = [] } = playlistData;
+        
+        let smilContent = `<?xml version="1.0" encoding="UTF-8"?>
+<smil>
+    <head>
+        <meta name="title" content="Playlists de Agendamentos" />
+        <meta name="copyright" content="Sistema de Streaming" />
+    </head>
+    <body>
+        <switch>
+`;
+
+        // Adicionar cada playlist
+        playlists.forEach((playlist, index) => {
+            smilContent += `            <seq id="playlist_${playlist.id}" title="${playlist.nome}">\n`;
+            
+            // Adicionar vídeos da playlist
+            const playlistVideos = videos.filter(v => v.playlist_id === playlist.id);
+            playlistVideos.forEach(video => {
+                const videoPath = video.caminho.replace('/home/streaming/', '');
+                smilContent += `                <video src="${videoPath}" dur="${video.duracao || 0}s" />\n`;
+            });
+            
+            smilContent += `            </seq>\n`;
+        });
+    }
+        smilContent += `        </switch>
+    </body>
+</smil>`;
+
+        return smilContent;
+    }
+
+    // Criar arquivo .ftpquota para controle de espaço
+    async createFTPQuota(serverId, userLogin, quotaMB) {
+        try {
+            const userStreamingPath = `${this.streamingBasePath}/${userLogin}`;
+            const quotaPath = `${userStreamingPath}/.ftpquota`;
+            
+            // Conteúdo do arquivo de quota (em bytes)
+            const quotaBytes = quotaMB * 1024 * 1024;
+            const quotaContent = quotaBytes.toString();
+            
+            // Criar arquivo temporário local
+            const tempFile = `/tmp/ftpquota_${userLogin}`;
+            const fs = require('fs').promises;
+            await fs.writeFile(tempFile, quotaContent);
+
+            // Enviar para servidor
+            await SSHManager.uploadFile(serverId, tempFile, quotaPath);
+            
+            // Definir permissões
+            await SSHManager.executeCommand(serverId, `chmod 755 ${quotaPath}`);
+            await SSHManager.executeCommand(serverId, `chown streaming:streaming ${quotaPath}`);
+
+            // Limpar arquivo temporário
+            await fs.unlink(tempFile);
+
+            console.log(`📄 Arquivo .ftpquota criado: ${quotaPath} (${quotaMB}MB)`);
+            return quotaPath;
+        } catch (error) {
+            console.error(`Erro ao criar arquivo .ftpquota para ${userLogin}:`, error);
+            throw error;
+        }
     }
 
     // Criar todos os arquivos de configuração
@@ -491,7 +591,8 @@ class WowzaConfigManager {
                 this.createApplicationXML(serverId, userLogin, userConfig),
                 this.createAliasMapPlay(serverId, userLogin),
                 this.createAliasMapStream(serverId, userLogin),
-                this.createPublishPassword(serverId, userLogin, userPassword)
+                this.createPublishPassword(serverId, userLogin, userPassword),
+                this.createFTPQuota(serverId, userLogin, userConfig.espaco || 1000)
             ]);
 
             console.log(`✅ Todos os arquivos de configuração criados para ${userLogin}`);
@@ -708,7 +809,7 @@ class WowzaConfigManager {
         const finalFileName = fileName.endsWith('.mp4') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp4');
         
         // Caminho relativo na nova estrutura
-        const streamPath = `${userLogin}/${folderName}/${finalFileName}`;
+        const streamPath = `streaming/${userLogin}/${folderName}/${finalFileName}`;
         
         return {
             // URL HLS usando aplicação específica do usuário

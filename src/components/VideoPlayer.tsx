@@ -87,10 +87,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return url;
     }
     
-    // Para caminhos relativos, construir URL correta
+    // Para caminhos relativos, garantir estrutura correta
     const cleanPath = url.replace(/^\/+/, ''); // Remove barras iniciais
     const token = localStorage.getItem('auth_token');
-    const baseUrl = `/content/${cleanPath}`;
+    
+    // Verificar se já tem o prefixo 'streaming'
+    const baseUrl = cleanPath.startsWith('streaming/') ? 
+      `/content/${cleanPath}` : 
+      `/content/streaming/${cleanPath}`;
+      
     return token ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}auth_token=${encodeURIComponent(token)}` : baseUrl;
   };
 

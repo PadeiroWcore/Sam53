@@ -100,9 +100,15 @@ const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
       return src;
     }
 
-    // Para vídeos locais, sempre usar o proxy /content do backend
+    // Para vídeos locais, garantir estrutura correta
     const cleanPath = src.replace(/^\/+/, ''); // Remove barras iniciais
-    return `/content/${cleanPath}`;
+    
+    // Verificar se já tem o prefixo 'streaming'
+    if (cleanPath.startsWith('streaming/')) {
+      return `/content/${cleanPath}`;
+    } else {
+      return `/content/streaming/${cleanPath}`;
+    }
   };
 
   // Função para otimizar URL de vídeo SSH

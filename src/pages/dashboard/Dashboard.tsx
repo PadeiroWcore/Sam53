@@ -367,9 +367,15 @@ const Dashboard: React.FC = () => {
       return url;
     }
 
-    // Todos os vídeos agora são MP4, usar proxy /content do backend
+    // Garantir estrutura correta para nova organização
     const cleanPath = url.replace(/^\/+/, '');
-    return `/content/${cleanPath}`;
+    
+    // Verificar se já tem o prefixo 'streaming'
+    if (cleanPath.startsWith('streaming/')) {
+      return `/content/${cleanPath}`;
+    } else {
+      return `/content/streaming/${cleanPath}`;
+    }
   };
 
   return (

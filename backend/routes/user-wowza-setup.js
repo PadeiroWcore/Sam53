@@ -23,15 +23,22 @@ router.get('/status', authMiddleware, async (req, res) => {
         // Verificar estrutura completa
         const structureStatus = await SSHManager.checkCompleteUserStructure(serverId, userLogin);
 
+        // Verificar se arquivo SMIL existe
+        const PlaylistSMILService = require('../services/PlaylistSMILService');
+        const smilExists = await PlaylistSMILService.checkSMILExists(serverId, userLogin);
+
         res.json({
             success: true,
             user_login: userLogin,
             server_id: serverId,
             structure_status: structureStatus,
+            smil_exists: smilExists,
             paths: {
                 streaming_base: `/home/streaming/${userLogin}`,
                 wowza_config: `/usr/local/WowzaStreamingEngine-4.8.0/conf/${userLogin}`,
-                recordings: `/home/streaming/${userLogin}/recordings`
+                recordings: `/home/streaming/${userLogin}/recordings`,
+                smil_file: `/home/streaming/${userLogin}/playlists_agendamentos.smil`,
+                ftpquota: `/home/streaming/${userLogin}/.ftpquota`
             }
         });
 
@@ -85,13 +92,23 @@ router.post('/create', authMiddleware, async (req, res) => {
         // Verificar se foi criado com sucesso
         const finalStatus = await SSHManager.checkCompleteUserStructure(serverId, userLogin);
 
+        // Gerar arquivo SMIL inicial
+        const PlaylistSMILService = require('../services/PlaylistSMILService');
+        const smilResult = await PlaylistSMILService.generateUserSMIL(userId, userLogin, serverId);
+
         res.json({
             success: true,
             message: 'Estrutura criada com sucesso',
             user_login: userLogin,
             server_id: serverId,
             structure_status: finalStatus,
-            config_applied: userConfig
+            config_applied: userConfig,
+            smil_generated: smilResult.success,
+            smil_info: smilResult.success ? {
+                path: smilResult.smil_path,
+                playlists: smilResult.playlists_count,
+                videos: smilResult.total_videos
+            } : null
         });
 
     } catch (error) {
@@ -166,7 +183,7 @@ router.post('/migrate', authMiddleware, async (req, res) => {
                     const newRelativePath = `streaming/${userLogin}/${folderName}/${fileName}`;
                     await db.execute(
                         'UPDATE videos SET caminho = ?, url = ? WHERE id = ?',
-                        [migrationResult.newPath, newRelativePath, video.id]
+                        [migrationResult.newPath, `${userLogin}/${folderName}/${fileName}`, video.id]
                     );
 
                     migratedCount++;
@@ -178,6 +195,15 @@ router.post('/migrate', authMiddleware, async (req, res) => {
             } catch (videoError) {
                 errors.push(`Erro ao migrar ${video.nome}: ${videoError.message}`);
             }
+        }
+
+        // Atualizar arquivo SMIL após migração
+        try {
+            const PlaylistSMILService = require('../services/PlaylistSMILService');
+            await PlaylistSMILService.updateUserSMIL(userId, userLogin, serverId);
+            console.log(`✅ Arquivo SMIL atualizado após migração para usuário ${userLogin}`);
+        } catch (smilError) {
+            console.warn('Erro ao atualizar SMIL após migração:', smilError.message);
         }
 
         res.json({

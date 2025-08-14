@@ -273,7 +273,7 @@ class YouTubeDownloader {
                         console.log(`📤 Arquivo enviado para servidor: ${remotePath}`);
 
                         // Salvar no banco de dados
-                        const relativePath = `streaming/${userLogin}/${folderName}/${fileName}`;
+                        const relativePath = `${userLogin}/${folderName}/${fileName}`;
                         
                         const [result] = await db.execute(
                             `INSERT INTO videos (

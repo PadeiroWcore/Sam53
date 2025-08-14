@@ -91,7 +91,7 @@ router.post('/', authMiddleware, async (req, res) => {
         espectadores, bitrate, espaco, ftp_dir, identificacao, email,
         data_cadastro, aplicacao, status
       ) VALUES (?, ?, ?, '', '', 100, 2500, 1000, ?, ?, ?, NOW(), 'live', 1)`,
-      [userId, serverId, userLogin, `/${userLogin}/${nome}`, nome, req.user.email]
+      [userId, serverId, userLogin, `/home/streaming/${userLogin}/${nome}`, nome, req.user.email]
     );
 
     try {
@@ -108,10 +108,21 @@ router.post('/', authMiddleware, async (req, res) => {
       
       console.log(`✅ Pasta ${nome} criada no servidor para usuário ${userLogin}`);
 
-      // Definir permissões corretas
-      const folderPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${nome}`;
-      await SSHManager.executeCommand(serverId, `chmod 755 "${folderPath}"`);
-      await SSHManager.executeCommand(serverId, `chown -R wowza:wowza "${folderPath}"`);
+      // Criar arquivo .ftpquota na pasta do usuário se não existir
+      const quotaPath = `/home/streaming/${userLogin}/.ftpquota`;
+      const quotaExists = await SSHManager.getFileInfo(serverId, quotaPath);
+      if (!quotaExists.exists) {
+        const quotaMB = req.user.espaco || 1000;
+        const quotaBytes = quotaMB * 1024 * 1024;
+        const tempQuotaFile = `/tmp/ftpquota_${userLogin}`;
+        const fs = require('fs').promises;
+        await fs.writeFile(tempQuotaFile, quotaBytes.toString());
+        await SSHManager.uploadFile(serverId, tempQuotaFile, quotaPath);
+        await SSHManager.executeCommand(serverId, `chmod 755 "${quotaPath}"`);
+        await SSHManager.executeCommand(serverId, `chown streaming:streaming "${quotaPath}"`);
+        await fs.unlink(tempQuotaFile);
+        console.log(`📄 Arquivo .ftpquota criado: ${quotaPath} (${quotaMB}MB)`);
+      }
       
     } catch (sshError) {
       console.error('Erro ao criar pasta no servidor:', sshError);
@@ -177,8 +188,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     try {
       // Renomear pasta no servidor via SSH
-      const oldPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${oldFolderName}`;
-      const newPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${nome}`;
+      const oldPath = `/home/streaming/${userLogin}/${oldFolderName}`;
+      const newPath = `/home/streaming/${userLogin}/${nome}`;
       
       // Verificar se pasta antiga existe
       const checkCommand = `test -d "${oldPath}" && echo "EXISTS" || echo "NOT_EXISTS"`;
@@ -189,8 +200,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
         await SSHManager.executeCommand(serverId, `mv "${oldPath}" "${newPath}"`);
         
         // Definir permissões corretas
-        await SSHManager.executeCommand(serverId, `chmod 755 "${newPath}"`);
-        await SSHManager.executeCommand(serverId, `chown -R wowza:wowza "${newPath}"`);
+        await SSHManager.executeCommand(serverId, `chmod -R 755 "${newPath}"`);
+        await SSHManager.executeCommand(serverId, `chown -R streaming:streaming "${newPath}"`);
         
         console.log(`✅ Pasta renomeada no servidor: ${oldFolderName} -> ${nome}`);
       } else {
@@ -210,13 +221,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
     // Atualizar nome no banco de dados
     await db.execute(
       'UPDATE streamings SET identificacao = ?, ftp_dir = ? WHERE codigo = ?',
-      [nome, `/${userLogin}/${nome}`, folderId]
+      [nome, `/home/streaming/${userLogin}/${nome}`, folderId]
     );
 
     // Atualizar caminhos dos vídeos no banco se necessário
     await db.execute(
       `UPDATE videos SET 
-       url = REPLACE(url, '/${userLogin}/${oldFolderName}/', '/${userLogin}/${nome}/'),
+       url = REPLACE(url, '${userLogin}/${oldFolderName}/', '${userLogin}/${nome}/'),
        caminho = REPLACE(caminho, '/${oldFolderName}/', '/${nome}/')
        WHERE pasta = ? AND codigo_cliente = ?`,
       [folderId, userId]
@@ -285,7 +296,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     try {
       // Remover pasta do servidor via SSH
-      const remoteFolderPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}`;
+      const remoteFolderPath = `/home/streaming/${userLogin}/${folderName}`;
       
       // Verificar se pasta existe no servidor
       const checkCommand = `test -d "${remoteFolderPath}" && echo "EXISTS" || echo "NOT_EXISTS"`;
@@ -366,7 +377,7 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
     // Verificar se pasta existe no servidor
     let serverInfo = null;
     try {
-      const remoteFolderPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}`;
+      const remoteFolderPath = `/home/streaming/${userLogin}/${folderName}`;
       const checkCommand = `test -d "${remoteFolderPath}" && ls -la "${remoteFolderPath}" | head -1 || echo "NOT_EXISTS"`;
       const checkResult = await SSHManager.executeCommand(serverId, checkCommand);
       

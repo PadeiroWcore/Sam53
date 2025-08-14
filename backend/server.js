@@ -1,4 +1,4 @@
-  const express = require('express');
+const express = require('express');
   const cors = require('cors');
   const path = require('path');
   const db = require('./config/database');
@@ -27,6 +27,7 @@ const videoStreamRoutes = require('./routes/video-stream');
 const userWowzaSetupRoutes = require('./routes/user-wowza-setup');
 const appMultiplataformaRoutes = require('./routes/app-multiplataforma');
 const appAndroidRoutes = require('./routes/app-android');
+const smilManagementRoutes = require('./routes/smil-management');
 
   const app = express();
   const PORT = process.env.PORT || 3001;
@@ -151,16 +152,31 @@ const appAndroidRoutes = require('./routes/app-android');
       
       // Limpar e processar caminho
       const cleanPath = requestPath.replace('/content/', '').replace(/^\/+/, '');
+      
+      // Verificar se já tem o prefixo 'streaming'
+      const finalPath = cleanPath.startsWith('streaming/') ? cleanPath : `streaming/${cleanPath}`;
       const pathParts = cleanPath.split('/');
       
-      if (pathParts.length < 3) {
+      // Para nova estrutura: streaming/usuario/pasta/arquivo
+      if (pathParts.length < 4 && !cleanPath.startsWith('streaming/')) {
         console.log(`❌ Caminho inválido: ${requestPath}`);
         return res.status(404).json({ error: 'Caminho de vídeo inválido' });
       }
       
-      const userLogin = pathParts[0];
-      const folderName = pathParts[1];
-      const fileName = pathParts[2];
+      // Extrair partes do caminho baseado na estrutura
+      let userLogin, folderName, fileName;
+      
+      if (cleanPath.startsWith('streaming/')) {
+        // Nova estrutura: streaming/usuario/pasta/arquivo
+        userLogin = pathParts[1];
+        folderName = pathParts[2];
+        fileName = pathParts[3];
+      } else {
+        // Estrutura direta: usuario/pasta/arquivo
+        userLogin = pathParts[0];
+        folderName = pathParts[1];
+        fileName = pathParts[2];
+      }
       
       // Buscar servidor do usuário dinamicamente
       let wowzaHost = '51.222.156.223'; // Fallback padrão
@@ -511,6 +527,7 @@ app.use('/api/video-stream', videoStreamRoutes);
 app.use('/api/user-wowza-setup', userWowzaSetupRoutes);
 app.use('/api/app-multiplataforma', appMultiplataformaRoutes);
 app.use('/api/app-android', appAndroidRoutes);
+app.use('/api/smil-management', smilManagementRoutes);
 
   // Rota de teste
   app.get('/api/test', (req, res) => {
